@@ -2,7 +2,7 @@
 Production-grade food delivery platform built with Spring Boot microservices, Kafka, Redis GEO, WebSockets, PostgreSQL, JWT Security, Google Maps and Flutter. Features event-driven architecture, transactional outbox, API Gateway, real-time order tracking, and nearest rider assignment.
 
 
-# 🍔 Ryomen Food Delivery System
+#  Ryomen Food Delivery System
 
 > A production-grade, event-driven food delivery platform built using **Spring Boot Microservices, Apache Kafka, Redis GEO, PostgreSQL, Flutter, Google Maps and WebSockets**.
 
@@ -10,9 +10,9 @@ This project demonstrates how modern distributed systems are designed for scalab
 
 ---
 
-# ✨ Features
+#  Features
 
-## 👤 Customer Application
+##  Customer Application
 
 - User Authentication (JWT)
 - Browse Restaurants
@@ -27,7 +27,7 @@ This project demonstrates how modern distributed systems are designed for scalab
 
 ---
 
-## 🚴 Delivery Partner Application
+##  Delivery Partner Application
 
 - Delivery Partner Authentication
 - Go Online / Offline
@@ -40,7 +40,7 @@ This project demonstrates how modern distributed systems are designed for scalab
 
 ---
 
-## 🍽 Restaurant Management
+##  Restaurant Management
 
 - Restaurant Registration
 - Menu Management
@@ -50,7 +50,7 @@ This project demonstrates how modern distributed systems are designed for scalab
 
 ---
 
-## 🛠 Admin Dashboard (In Progress)
+##  Admin Dashboard (In Progress)
 
 - Restaurant Management
 - Delivery Partner Monitoring
@@ -60,7 +60,7 @@ This project demonstrates how modern distributed systems are designed for scalab
 
 ---
 
-# 🏗 Architecture
+#  Architecture
 
 This project follows an **Event-Driven Microservices Architecture**.
 
@@ -84,11 +84,11 @@ Instead of tightly coupling services through REST APIs, domain events are exchan
                 Customer & Delivery Apps
 ```
 
-> 📌 Insert Architecture Diagram Here
+>  Insert Architecture Diagram Here
 
 ---
 
-# 🚀 Microservices
+#  Microservices
 
 | Service | Responsibility |
 |----------|---------------|
@@ -104,7 +104,7 @@ Each microservice owns its own database and communicates through events.
 
 ---
 
-# 🔄 Event Driven Workflow
+#  Event Driven Workflow
 
 Example Order Flow
 
@@ -145,11 +145,11 @@ OrderPickedUpEvent
 OrderDeliveredEvent
 ```
 
-> 📌 Insert Event Flow Diagram Here
+>  Insert Event Flow Diagram Here
 
 ---
 
-# 📦 Transactional Outbox Pattern
+#  Transactional Outbox Pattern
 
 To guarantee reliable event publishing, every microservice implements the **Transactional Outbox Pattern**.
 
@@ -165,7 +165,7 @@ This guarantees consistency even if Kafka is temporarily unavailable.
 
 ---
 
-# ⚡ Apache Kafka
+#  Apache Kafka
 
 Implemented Concepts
 
@@ -182,7 +182,7 @@ Implemented Concepts
 
 ---
 
-# 📍 Redis GEO
+#  Redis GEO
 
 Redis GEO is used for **nearest rider assignment**.
 
@@ -208,7 +208,7 @@ This enables fast location queries suitable for real-time systems.
 
 ---
 
-# 🗺 Google Maps Integration
+#  Google Maps Integration
 
 Customer App
 
@@ -227,7 +227,7 @@ Delivery App
 
 ---
 
-# 📡 Real-Time Tracking
+#  Real-Time Tracking
 
 Location updates are streamed through WebSockets.
 
@@ -249,7 +249,7 @@ Customers can see the rider moving in real time.
 
 ---
 
-# 🔐 Security
+#  Security
 
 - JWT Authentication
 - BCrypt Password Encryption
@@ -265,7 +265,7 @@ Roles
 
 ---
 
-# 🛠 Technology Stack
+#  Technology Stack
 
 ## Backend
 
@@ -314,7 +314,7 @@ Roles
 
 ---
 
-# 📂 Project Structure
+#  Project Structure
 
 ```
 food-delivery-system/
@@ -333,7 +333,7 @@ food-delivery-system/
 
 ---
 
-# 🔥 Engineering Concepts Demonstrated
+#  Engineering Concepts Demonstrated
 
 - Microservices
 - Event-Driven Architecture
@@ -354,23 +354,7 @@ food-delivery-system/
 
 ---
 
-# 📈 Future Improvements
-
-- Docker
-- Docker Compose
-- Kubernetes
-- Prometheus
-- Grafana
-- ELK Stack
-- CI/CD Pipeline
-- Distributed Tracing
-- Rate Limiting
-- Circuit Breaker
-- Push Notifications
-
----
-
-# 📸 Screenshots
+#  Screenshots
 
 ## Customer App
 
@@ -390,7 +374,7 @@ food-delivery-system/
 
 ---
 
-# 📊 Architecture Diagrams
+#  Architecture Diagrams
 
 - System Architecture
 - Event Flow
@@ -404,7 +388,7 @@ food-delivery-system/
 
 ---
 
-# 🎯 Purpose
+#  Purpose
 
 This project was built to explore how modern food delivery platforms achieve scalability, reliability and real-time communication using distributed systems.
 
