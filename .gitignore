@@ -20,11 +20,15 @@ Desktop.ini
 
 # ----- IDE -----
 .idea/
+.vscode/
 *.iml
 *.ipr
 *.iws
 *.swp
 *.swo
+
+# ----- Kiro (local specs/agent workspace — not committed) -----
+.kiro/
 
 # ----- Logs / temp -----
 *.log
