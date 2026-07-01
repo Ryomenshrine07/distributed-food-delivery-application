@@ -6,6 +6,27 @@ This project demonstrates how modern distributed systems are designed for scalab
 
 ---
 
+<img width="750" height="573" alt="image" src="https://github.com/user-attachments/assets/13efc10e-5cd0-40b3-a16f-16cffcce2d14" />
+
+
+#  Microservices
+
+| Service | Responsibility |
+|----------|---------------|
+| Auth Service | Authentication & JWT |
+| Restaurant Service | Restaurant & Menu Management |
+| Order Service | Order Lifecycle |
+| Payment Service | Payment Processing |
+| Delivery Service | Rider Assignment & Delivery Lifecycle |
+| Tracking Service | Live Rider Tracking |
+| API Gateway | Central Entry Point |
+
+Each microservice owns its own database and communicates through events.
+
+---
+
+---
+
 #  Features
 
 ##  Customer Application
@@ -46,7 +67,7 @@ This project demonstrates how modern distributed systems are designed for scalab
 
 ---
 
-##  Admin Dashboard (In Progress)
+##  Admin Dashboard 
 
 - Restaurant Management
 - Delivery Partner Monitoring
@@ -80,25 +101,7 @@ Instead of tightly coupling services through REST APIs, domain events are exchan
                 Customer & Delivery Apps
 ```
 
->  Insert Architecture Diagram Here
 
----
-
-#  Microservices
-
-| Service | Responsibility |
-|----------|---------------|
-| Auth Service | Authentication & JWT |
-| Restaurant Service | Restaurant & Menu Management |
-| Order Service | Order Lifecycle |
-| Payment Service | Payment Processing |
-| Delivery Service | Rider Assignment & Delivery Lifecycle |
-| Tracking Service | Live Rider Tracking |
-| API Gateway | Central Entry Point |
-
-Each microservice owns its own database and communicates through events.
-
----
 
 #  Event Driven Workflow
 
@@ -141,7 +144,8 @@ OrderPickedUpEvent
 OrderDeliveredEvent
 ```
 
->  Insert Event Flow Diagram Here
+<img width="755" height="551" alt="image" src="https://github.com/user-attachments/assets/cf7b1fd9-cd22-400c-ab08-6db461098cc4" />
+
 
 ---
 
