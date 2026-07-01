@@ -8,12 +8,13 @@ plugins {
 // Load the Google Maps API key from android/local.properties (git-ignored) so it
 // is never committed. Falls back to empty, which builds fine (maps just won't
 // render until a key is provided). Set MAPS_API_KEY=... in android/local.properties.
-val mapsApiKey: String = run {
-    val props = java.util.Properties()
-    val f = rootProject.file("local.properties")
-    if (f.exists()) f.inputStream().use { props.load(it) }
-    props.getProperty("MAPS_API_KEY", "")
-}
+val mapsApiKey: String = rootProject.file("local.properties")
+    .takeIf { it.exists() }
+    ?.readLines()
+    ?.firstOrNull { it.startsWith("MAPS_API_KEY=") }
+    ?.substringAfter("=")
+    ?.trim()
+    ?: ""
 
 android {
     namespace = "com.ryomen.delivery"
