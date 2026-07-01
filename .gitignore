@@ -1,0 +1,88 @@
+# ==========================================================
+# Root .gitignore — Distributed Food Delivery Application (monorepo)
+# Per-service .gitignore files also exist under:
+#   backend/<service>/.gitignore (Spring Initializr)
+#   frontend/Customer_app|Delivery_app/.gitignore (Flutter)
+#   frontend/admin-web/.gitignore (Vite)
+# This root file covers repo-level cruft and adds defensive coverage
+# so build artifacts / secrets never slip in from any service.
+# ==========================================================
+
+# ----- OS / editor cruft -----
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# ----- IDE -----
+.idea/
+*.iml
+*.ipr
+*.iws
+*.swp
+*.swo
+
+# ----- Logs / temp -----
+*.log
+logs/
+payment-logs.txt
+*.pid
+*.seed
+*.tmp
+
+# ----- Secrets / local env (never commit real credentials) -----
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+*.jks
+*.keystore
+secrets.properties
+**/src/main/resources/application-local.properties
+**/src/main/resources/application-secret*.properties
+# Flutter per-app injected Maps key (real files ignored; *.example are committed)
+Secrets.xcconfig
+dart_define.json
+!Secrets.xcconfig.example
+!dart_define.example.json
+
+# ==========================================================
+# Java / Maven (backend microservices)
+# ==========================================================
+target/
+!.mvn/wrapper/maven-wrapper.jar
+*.class
+HELP.md
+
+# ==========================================================
+# Node / Vite (frontend/admin-web)
+# ==========================================================
+node_modules/
+dist/
+dist-ssr/
+*.local
+.vite/
+coverage/
+
+# ==========================================================
+# Flutter / Dart (Customer_app, Delivery_app)
+# ==========================================================
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+build/
+**/android/app/debug
+**/android/app/profile
+**/android/app/release
+app.*.symbols
+app.*.map.json
+*.apk
+*.aab
+*.ipa
