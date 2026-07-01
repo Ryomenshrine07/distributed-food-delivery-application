@@ -4,7 +4,6 @@ import com.service.delivery.entity.DeliveryAssignment;
 import com.service.delivery.entity.DeliveryPartner;
 import com.service.delivery.enums.DeliveryStatus;
 import com.service.delivery.event.DeliveryAssignedEvent;
-import com.service.delivery.event.OrderDeliveredEvent;
 import com.service.delivery.event.OrderPickedUpEvent;
 import com.service.delivery.event.OrderReadyForPickupEvent;
 import com.service.delivery.event.PaymentCompletedEvent;
@@ -133,19 +132,31 @@ public class DeliveryAssignmentService {
     }
 
     /**
-     * Rider has delivered the order. This frees the rider (flow step 9) and publishes the
-     * OrderDeliveredEvent - all within the Delivery domain, with no callback to Auth.
+     * Releases the assigned rider in response to the customer's delivery confirmation.
+     *
+     * <p>The Order Service emits {@code OrderDeliveredEvent} on the {@code order-delivered}
+     * topic when the owning customer confirms receipt of an order; the
+     * {@link com.service.delivery.consumer.OrderDeliveredConsumer} invokes this method. This is
+     * now the ONLY post-assignment rider-release path - riders can no longer self-complete.
+     *
+     * <p>Idempotent by design: if the assignment is already {@code DELIVERED} (for example the
+     * event is redelivered) the method makes no further change and does NOT release the partner
+     * again, so the partner is freed exactly once. A missing assignment is logged and skipped.
      */
     @Transactional
-    public void completeDelivery(UUID orderId, UUID partnerId) {
-        DeliveryAssignment assignment = getAssignment(orderId);
-        ensureAssignedPartner(assignment, partnerId);
+    public void releaseForDeliveredOrder(UUID orderId) {
+        DeliveryAssignment assignment = deliveryAssignmentRepository.findByOrderId(orderId)
+                .orElse(null);
 
-        if (assignment.getStatus() != DeliveryStatus.PICKED_UP) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Order must be picked up before it can be delivered"
-            );
+        if (assignment == null) {
+            log.warn("order-delivered received for order {} with no delivery assignment; skipping",
+                    orderId);
+            return;
+        }
+
+        if (assignment.getStatus() == DeliveryStatus.DELIVERED) {
+            log.info("order-delivered for order {} ignored; assignment already DELIVERED", orderId);
+            return;
         }
 
         OffsetDateTime now = OffsetDateTime.now();
@@ -153,22 +164,38 @@ public class DeliveryAssignmentService {
         assignment.setDeliveredAt(now);
         assignment.setUpdatedAt(now);
 
-        deliveryPartnerService.markAvailable(assignment.getDeliveryPartnerId());
+        UUID partnerId = assignment.getDeliveryPartnerId();
+        if (partnerId != null) {
+            deliveryPartnerService.markAvailable(partnerId);
+            log.info("Order {} delivered (customer-confirmed); partner {} released",
+                    orderId, partnerId);
+        } else {
+            log.warn("Order {} delivered but assignment has no partner to release", orderId);
+        }
+    }
 
-        outboxRecorder.record(
-                KafkaTopics.ORDER_DELIVERED,
-                "ORDER",
-                orderId,
-                new OrderDeliveredEvent(orderId, assignment.getDeliveryPartnerId(), now)
-        );
-
-        log.info("Order {} delivered by partner {}; partner released",
-                orderId, partnerId);
+    /**
+     * Read-only recovery lookup: returns the partner's current in-flight assignment, or
+     * {@code null} if they have none.
+     *
+     * <p>Backs {@code GET /api/delivery/assignments/current} so the rider's app can restore an
+     * active delivery after a reinstall wiped its local cache. Only {@link DeliveryStatus#ASSIGNED}
+     * and {@link DeliveryStatus#PICKED_UP} count as "active" - the accepted-but-unfinished states
+     * a rider can resume. Terminal/other states ({@code DELIVERED}, {@code CANCELLED},
+     * {@code WAITING_FOR_PICKUP}, {@code PENDING}, {@code ACCEPTED}) are intentionally excluded so
+     * nothing stale is recovered. No writes, so no transaction is needed.
+     */
+    public DeliveryAssignment getActiveAssignmentForPartner(UUID partnerId) {
+        return deliveryAssignmentRepository
+                .findFirstByDeliveryPartnerIdAndStatusInOrderByAssignedAtDesc(
+                        partnerId,
+                        List.of(DeliveryStatus.ASSIGNED, DeliveryStatus.PICKED_UP))
+                .orElse(null);
     }
 
     public List<DeliveryAssignment> getPendingOffers(UUID partnerId) {
         List<DeliveryAssignment> pending = deliveryAssignmentRepository.findByStatus(DeliveryStatus.PENDING);
-        
+
         org.springframework.data.geo.Point partnerLoc = redisLocationService.getPartnerLocation(partnerId);
         if (partnerLoc == null) {
             return List.of();

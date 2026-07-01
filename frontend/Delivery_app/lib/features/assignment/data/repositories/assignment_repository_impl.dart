@@ -30,7 +30,12 @@ class AssignmentRepositoryImpl implements AssignmentRepository {
   Future<DeliveryAssignment?> getActiveAssignment() async {
     // Read from local cache
     final jsonStr = _prefs.getString(_cacheKey);
-    if (jsonStr == null) return null;
+    if (jsonStr == null) {
+      // Cache empty — e.g. the rider deleted and reinstalled the app, which
+      // wiped local storage. Fall back to the backend so an in-progress
+      // assignment is recovered instead of showing "waiting for orders".
+      return _recoverActiveAssignmentFromBackend();
+    }
     
     try {
       final assignment = DeliveryAssignment.fromJson(jsonDecode(jsonStr));
@@ -57,6 +62,35 @@ class AssignmentRepositoryImpl implements AssignmentRepository {
       return assignment;
     } catch (e) {
       debugPrint('Error parsing cached assignment: $e');
+      return null;
+    }
+  }
+
+  /// Recovers an in-progress assignment from the backend when the local cache
+  /// is empty (e.g. after a reinstall wiped local storage).
+  ///
+  /// Read-only: GETs `/api/delivery/assignments/current`. The backend returns
+  /// 204 No Content (empty body) when the rider has no active assignment, in
+  /// which case this returns null. Otherwise the bare assignment is parsed,
+  /// enriched with order/restaurant details, cached, and returned. Any error is
+  /// swallowed (returns null) so this never throws — the caller treats null as
+  /// "no active assignment" and shows the waiting state as before.
+  Future<DeliveryAssignment?> _recoverActiveAssignmentFromBackend() async {
+    try {
+      final res = await _apiClient.get('/api/delivery/assignments/current');
+
+      // 204 No Content / empty body → the rider has no active assignment.
+      final data = res.data;
+      if (res.statusCode == 204 || data == null || data == '') {
+        return null;
+      }
+
+      final base = DeliveryAssignment.fromJson(data as Map<String, dynamic>);
+      final enriched = await _enrichAssignment(base);
+      await cacheAssignment(enriched);
+      return enriched;
+    } catch (e) {
+      debugPrint('Failed to recover active assignment from backend: $e');
       return null;
     }
   }
@@ -111,48 +145,6 @@ class AssignmentRepositoryImpl implements AssignmentRepository {
   }
 
   @override
-  Future<Result<void>> markDelivered(String orderId) async {
-    try {
-      // TODO: Gap 0 — gateway routing for delivery assignments
-      await _apiClient.postVoid('/api/delivery/assignments/$orderId/delivered');
-
-      // Update cached assignment
-      final assignment = await getActiveAssignment();
-      if (assignment != null) {
-        await cacheAssignment(assignment.copyWith(
-          status: DeliveryStatus.delivered,
-          deliveredAt: DateTime.now(),
-        ));
-      }
-
-      return const Right(null);
-    } on NoConnectionFailure {
-      final confirmation = PendingConfirmation(
-        id: 'delivery_${orderId}_${DateTime.now().millisecondsSinceEpoch}',
-        orderId: orderId,
-        type: ConfirmationType.delivered,
-        enqueuedAt: DateTime.now(),
-      );
-      await _offlineQueue.enqueue(confirmation);
-
-      // Optimistically update cache
-      final assignment = await getActiveAssignment();
-      if (assignment != null) {
-        await cacheAssignment(assignment.copyWith(
-          status: DeliveryStatus.delivered,
-          deliveredAt: DateTime.now(),
-        ));
-      }
-
-      return const Right(null);
-    } catch (e) {
-      if (e is Failure) return Left(e);
-      if (e.toString().contains('409')) return const Right(null);
-      return Left(ServerFailure(e.toString()));
-    }
-  }
-
-  @override
   Future<void> clearActiveAssignment() async {
     await _prefs.remove(_cacheKey);
   }
@@ -166,34 +158,42 @@ class AssignmentRepositoryImpl implements AssignmentRepository {
       final List<DeliveryAssignment> enrichedOffers = [];
       for (final json in data) {
          final baseAssignment = DeliveryAssignment.fromJson(json as Map<String, dynamic>);
-         
-         try {
-             final orderRes = await _apiClient.get('/orders/${baseAssignment.orderId}');
-             final orderData = orderRes.data;
-             final restaurantId = orderData['restaurantId'];
-             final restaurantRes = await _apiClient.get('/restaurants/$restaurantId');
-             
-             final restaurantData = restaurantRes.data['data']; // RestaurantResponse is wrapped in ApiResponse
-             
-             enrichedOffers.add(baseAssignment.copyWith(
-                customerName: orderData['customerName'] ?? 'Unknown Customer',
-                customerAddress: orderData['deliveryLocation']?['address'] ?? 'Unknown Address',
-                customerPhone: orderData['customerPhone'],
-                customerLatitude: (orderData['deliveryLocation']?['latitude'] ?? 0.0).toDouble(),
-                customerLongitude: (orderData['deliveryLocation']?['longitude'] ?? 0.0).toDouble(),
-                itemCount: (orderData['items'] as List?)?.length ?? 0,
-                restaurantName: restaurantData['name'] ?? 'Unknown Restaurant',
-                restaurantAddress: restaurantData['address'] ?? 'Unknown Address',
-             ));
-         } catch (e) {
-             debugPrint('Failed to enrich assignment ${baseAssignment.id}: $e');
-             enrichedOffers.add(baseAssignment);
-         }
+         enrichedOffers.add(await _enrichAssignment(baseAssignment));
       }
       return Right(enrichedOffers);
     } catch (e) {
       if (e is Failure) return Left(e);
       return Left(ServerFailure(e.toString()));
+    }
+  }
+
+  /// Enriches a bare backend assignment with customer/restaurant details by
+  /// joining the order (`/orders/{orderId}`) and restaurant
+  /// (`/restaurants/{restaurantId}`) services. On any failure the base
+  /// assignment is returned unchanged (best-effort enrichment). This is the
+  /// enrichment previously inlined in [getOffers]; behavior is unchanged.
+  Future<DeliveryAssignment> _enrichAssignment(DeliveryAssignment base) async {
+    try {
+      final orderRes = await _apiClient.get('/orders/${base.orderId}');
+      final orderData = orderRes.data;
+      final restaurantId = orderData['restaurantId'];
+      final restaurantRes = await _apiClient.get('/restaurants/$restaurantId');
+
+      final restaurantData = restaurantRes.data['data']; // RestaurantResponse is wrapped in ApiResponse
+
+      return base.copyWith(
+        customerName: orderData['customerName'] ?? 'Unknown Customer',
+        customerAddress: orderData['deliveryLocation']?['address'] ?? 'Unknown Address',
+        customerPhone: orderData['customerPhone'],
+        customerLatitude: (orderData['deliveryLocation']?['latitude'] ?? 0.0).toDouble(),
+        customerLongitude: (orderData['deliveryLocation']?['longitude'] ?? 0.0).toDouble(),
+        itemCount: (orderData['items'] as List?)?.length ?? 0,
+        restaurantName: restaurantData['name'] ?? 'Unknown Restaurant',
+        restaurantAddress: restaurantData['address'] ?? 'Unknown Address',
+      );
+    } catch (e) {
+      debugPrint('Failed to enrich assignment ${base.id}: $e');
+      return base;
     }
   }
 

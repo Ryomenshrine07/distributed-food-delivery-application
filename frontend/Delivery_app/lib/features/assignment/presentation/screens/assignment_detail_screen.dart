@@ -7,15 +7,62 @@ import '../../domain/entities/delivery_assignment.dart';
 import '../../domain/entities/delivery_status.dart';
 import '../providers/assignment_providers.dart';
 
-class AssignmentDetailScreen extends ConsumerWidget {
+class AssignmentDetailScreen extends ConsumerStatefulWidget {
   final String orderId;
   const AssignmentDetailScreen({super.key, required this.orderId});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AssignmentDetailScreen> createState() =>
+      _AssignmentDetailScreenState();
+}
+
+class _AssignmentDetailScreenState
+    extends ConsumerState<AssignmentDetailScreen> {
+  /// The most recent live (non-null) assignment observed. Lets us recognise a
+  /// later transition to "no active assignment" as a customer-confirmed
+  /// completion — even if this screen was opened with an assignment already in
+  /// place (in which case `ref.listen` would not replay it).
+  DeliveryAssignment? _lastAssignment;
+
+  /// One-shot latch so the completion flow (dialog + return home) runs exactly
+  /// once, even though the null state may be observed on several rebuilds.
+  bool _completionHandled = false;
+
+  @override
+  Widget build(BuildContext context) {
     final assignmentState = ref.watch(assignmentControllerProvider);
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+
+    // Seed from the currently-watched value so a screen opened while an
+    // assignment is already active still recognises its later completion.
+    if (assignmentState is AsyncData<DeliveryAssignment?> &&
+        assignmentState.value != null) {
+      _lastAssignment = assignmentState.value;
+    }
+
+    // Detect customer-confirmed completion: the polling controller settles the
+    // active assignment to null (cache cleared once the order is
+    // DELIVERED/CANCELLED) after we have seen a live one. Only a *settled*
+    // AsyncData(null) counts — an AsyncLoading (whose value is also null) from
+    // confirmPickup/acceptOffer must never fire this.
+    ref.listen<AsyncValue<DeliveryAssignment?>>(
+      assignmentControllerProvider,
+      (prev, next) {
+        if (next is AsyncData<DeliveryAssignment?> && next.value != null) {
+          _lastAssignment = next.value;
+          return;
+        }
+        final completed = next is AsyncData<DeliveryAssignment?> &&
+            next.value == null &&
+            _lastAssignment != null &&
+            !_completionHandled;
+        if (completed) {
+          _completionHandled = true;
+          _handleCompletion();
+        }
+      },
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -47,6 +94,39 @@ class AssignmentDetailScreen extends ConsumerWidget {
           }
           return _AssignmentDetailBody(assignment: assignment);
         },
+      ),
+    );
+  }
+
+  /// Runs once when the customer confirms receipt. Clears the (already
+  /// server-side complete) local assignment for tidiness, then shows a single
+  /// "delivered" moment and returns the rider home. The dialog uses the root
+  /// navigator (showDialog default), so it is visible even when the navigation
+  /// screen is stacked on top of this one, and "Back to Home" resets the stack
+  /// via `context.go`.
+  void _handleCompletion() {
+    ref.read(assignmentControllerProvider.notifier).clearAssignment();
+    if (!mounted) return;
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delivery complete!'),
+        content: const Text(
+          'The customer confirmed they received the order. '
+          "You're free for new deliveries.",
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              if (mounted) {
+                context.go(AppRoutes.home);
+              }
+            },
+            child: const Text('Back to Home'),
+          ),
+        ],
       ),
     );
   }
@@ -187,35 +267,12 @@ class _AssignmentDetailBody extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 12),
-          FilledButton.icon(
-            onPressed: isLoading
-                ? null
-                : () async {
-                    final error = await ref
-                        .read(assignmentControllerProvider.notifier)
-                        .confirmDelivery();
-                    if (error != null && context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(error)),
-                      );
-                    }
-                  },
-            icon: const Icon(Icons.check_circle),
-            label: isLoading
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
-                : const Text('Confirm Delivery'),
-            style: FilledButton.styleFrom(
-              minimumSize: const Size(double.infinity, 56),
-              backgroundColor: Colors.green,
-            ),
-          ),
+          // Completion is customer-driven: once the order is handed off, the rider
+          // waits for the customer to confirm receipt. There is deliberately no
+          // rider self-complete action here (Req 3.6, 3.7); the backend frees the
+          // rider on the customer's confirmation and the next poll clears the local
+          // active assignment (Req 3.10).
+          const _WaitingForCustomerConfirmation(),
         ];
 
       case DeliveryStatus.delivered:
@@ -256,6 +313,59 @@ class _AssignmentDetailBody extends ConsumerWidget {
           ),
         ];
     }
+  }
+}
+
+/// A non-actionable "waiting for customer confirmation" state shown once the
+/// order has been picked up. It replaces the former rider "Confirm Delivery"
+/// button: completion is now customer-driven, so the rider only hands off and
+/// waits (Req 3.6, 3.7).
+class _WaitingForCustomerConfirmation extends StatelessWidget {
+  const _WaitingForCustomerConfirmation();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Semantics(
+      // Explicitly not a button: there is no action for the rider to take here.
+      button: false,
+      container: true,
+      child: Card(
+        color: colorScheme.surfaceContainerHighest,
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Row(
+            children: [
+              Icon(Icons.hourglass_top, color: colorScheme.primary),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Waiting for customer confirmation',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'The order is complete once the customer confirms they '
+                      'received it. You\'ll be freed up automatically.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 

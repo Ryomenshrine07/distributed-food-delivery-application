@@ -5,6 +5,16 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Brand alignment (Req 12.1-12.4): the primary / sidebar-primary / ring / chart
+ * tokens are anchored on the shared Brand_Green.
+ *   Brand_Green  #2B9E49  -> oklch(0.617 0.159 148)   (light theme)
+ *   Brand_Green  #1F7A38  -> oklch(0.511 0.131 148)   (dark-theme shade)
+ * These hex->oklch values are exact conversions (sRGB -> linear -> OKLab -> OKLCH),
+ * not eyeballed; the existing --success oklch(0.627 0.171 143) confirms a green of
+ * ~L0.63 / C0.17 / H143-148 renders correctly here. --success is intentionally left
+ * unchanged as the anchor reference.
+ */
 @layer base {
   .theme {
     --font-heading: var(--font-sans);
@@ -17,7 +27,7 @@
     --card-foreground: oklch(0.145 0 0);
     --popover: oklch(1 0 0);
     --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.205 0 0);
+    --primary: oklch(0.617 0.159 148);
     --primary-foreground: oklch(0.985 0 0);
     --secondary: oklch(0.97 0 0);
     --secondary-foreground: oklch(0.205 0 0);
@@ -33,21 +43,21 @@
     --warning-foreground: oklch(0.145 0 0);
     --border: oklch(0.922 0 0);
     --input: oklch(0.922 0 0);
-    --ring: oklch(0.708 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
+    --ring: oklch(0.617 0.159 148);
+    --chart-1: oklch(0.617 0.159 148);
+    --chart-2: oklch(0.6 0.13 195);
+    --chart-3: oklch(0.55 0.15 250);
+    --chart-4: oklch(0.7 0.15 70);
+    --chart-5: oklch(0.58 0.17 310);
     --radius: 0.625rem;
     --sidebar: oklch(0.985 0 0);
     --sidebar-foreground: oklch(0.145 0 0);
-    --sidebar-primary: oklch(0.205 0 0);
+    --sidebar-primary: oklch(0.617 0.159 148);
     --sidebar-primary-foreground: oklch(0.985 0 0);
     --sidebar-accent: oklch(0.97 0 0);
     --sidebar-accent-foreground: oklch(0.205 0 0);
     --sidebar-border: oklch(0.922 0 0);
-    --sidebar-ring: oklch(0.708 0 0)
+    --sidebar-ring: oklch(0.617 0.159 148)
   }
   .dark {
     --background: oklch(0.145 0 0);
@@ -56,8 +66,8 @@
     --card-foreground: oklch(0.985 0 0);
     --popover: oklch(0.205 0 0);
     --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.922 0 0);
-    --primary-foreground: oklch(0.205 0 0);
+    --primary: oklch(0.511 0.131 148);
+    --primary-foreground: oklch(0.985 0 0);
     --secondary: oklch(0.269 0 0);
     --secondary-foreground: oklch(0.985 0 0);
     --muted: oklch(0.269 0 0);
@@ -72,20 +82,20 @@
     --warning-foreground: oklch(0.145 0 0);
     --border: oklch(1 0 0 / 10%);
     --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.556 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
+    --ring: oklch(0.617 0.159 148);
+    --chart-1: oklch(0.617 0.159 148);
+    --chart-2: oklch(0.6 0.13 195);
+    --chart-3: oklch(0.55 0.15 250);
+    --chart-4: oklch(0.7 0.15 70);
+    --chart-5: oklch(0.58 0.17 310);
     --sidebar: oklch(0.205 0 0);
     --sidebar-foreground: oklch(0.985 0 0);
-    --sidebar-primary: oklch(0.488 0.243 264.376);
+    --sidebar-primary: oklch(0.511 0.131 148);
     --sidebar-primary-foreground: oklch(0.985 0 0);
     --sidebar-accent: oklch(0.269 0 0);
     --sidebar-accent-foreground: oklch(0.985 0 0);
     --sidebar-border: oklch(1 0 0 / 10%);
-    --sidebar-ring: oklch(0.556 0 0)
+    --sidebar-ring: oklch(0.617 0.159 148)
   }
   * {
     border-color: var(--border);

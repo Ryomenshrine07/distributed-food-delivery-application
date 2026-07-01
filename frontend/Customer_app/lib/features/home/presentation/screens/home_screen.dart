@@ -6,6 +6,7 @@ import 'package:shimmer/shimmer.dart';
 
 import '../../../../core/routing/routes.dart';
 import '../../../../core/theme/app_tokens.dart';
+import '../../../cart/presentation/widgets/cart_icon_button.dart';
 import '../home_controller.dart';
 
 /// Home screen with recommended section and paginated restaurant list.
@@ -27,11 +28,7 @@ class HomeScreen extends ConsumerWidget {
             onPressed: () => context.push(AppRoutes.search),
             tooltip: 'Search restaurants',
           ),
-          IconButton(
-            icon: const Icon(Icons.shopping_cart_outlined),
-            onPressed: () => context.push(AppRoutes.cart),
-            tooltip: 'Cart',
-          ),
+          const CartIconButton(),
           IconButton(
             icon: const Icon(Icons.notifications_outlined),
             onPressed: () => context.push(AppRoutes.notifications),

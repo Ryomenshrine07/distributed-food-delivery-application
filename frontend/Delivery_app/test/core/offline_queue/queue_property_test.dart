@@ -26,7 +26,7 @@ void main() {
         return PendingConfirmation(
           id: 'id_${iteration}_$i',
           orderId: 'order_${iteration}_$i',
-          type: random.nextBool() ? ConfirmationType.pickedUp : ConfirmationType.delivered,
+          type: ConfirmationType.pickedUp,
           enqueuedAt: DateTime(2024, 1, 1).add(Duration(
             seconds: random.nextInt(365 * 24 * 3600),
           )),
@@ -61,7 +61,7 @@ void main() {
       enqueuedAt: DateTime(2024, 1, 1),
     );
     final c2 = PendingConfirmation(
-      id: 'c2', orderId: 'o2', type: ConfirmationType.delivered,
+      id: 'c2', orderId: 'o2', type: ConfirmationType.pickedUp,
       enqueuedAt: DateTime(2024, 1, 2),
     );
     final c3 = PendingConfirmation(
@@ -98,7 +98,7 @@ void main() {
   test('clear empties the queue', () async {
     for (var i = 0; i < 5; i++) {
       await queue.enqueue(PendingConfirmation(
-        id: 'clr_$i', orderId: 'o_$i', type: ConfirmationType.delivered,
+        id: 'clr_$i', orderId: 'o_$i', type: ConfirmationType.pickedUp,
         enqueuedAt: DateTime(2024, 1, i + 1),
       ));
     }

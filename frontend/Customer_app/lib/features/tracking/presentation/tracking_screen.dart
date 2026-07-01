@@ -8,8 +8,10 @@ import '../../../core/constants/app_constants.dart';
 import '../../../core/error/app_exception.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_tokens.dart';
+import '../../../core/widgets/call_button.dart';
 import '../../../core/maps/directions_service.dart';
 import '../../../core/maps/marker_animator.dart';
+import '../../../core/maps/marker_icon_factory.dart';
 import '../../../core/websocket/tracking_socket.dart';
 import '../../../core/storage/secure_storage.dart';
 import '../../orders/data/dtos/order_dto.dart';
@@ -153,6 +155,10 @@ class _OrderTrackingViewState extends ConsumerState<_OrderTrackingView>
   late MarkerAnimator _markerAnimator;
   StreamSubscription? _locationSub;
 
+  final MarkerIconFactory _markerIconFactory = MarkerIconFactory();
+  BitmapDescriptor? _riderPuck;
+  bool _puckRequested = false;
+
   late LatLng _customerLocation;
   late LatLng _riderLocation;
   bool _hasRiderLocation = false;
@@ -180,6 +186,31 @@ class _OrderTrackingViewState extends ConsumerState<_OrderTrackingView>
     );
 
     _initTracking();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _ensureRiderPuck();
+  }
+
+  /// Builds the custom rider puck once, on the first frame, using the live
+  /// device pixel ratio and the `riderMarker` token. Until it is ready (or if
+  /// rendering fails) the map keeps the default rider marker (Req 1.3, 1.9).
+  Future<void> _ensureRiderPuck() async {
+    if (_puckRequested) return;
+    _puckRequested = true;
+    final tokens = Theme.of(context).extension<AppTokens>()!;
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+    try {
+      final puck = await _markerIconFactory.vehiclePuck(
+        color: tokens.riderMarker,
+        devicePixelRatio: dpr,
+      );
+      if (mounted) setState(() => _riderPuck = puck);
+    } catch (_) {
+      // Keep the default marker on failure; never crash (Req 1.9).
+    }
   }
 
   String _getStatusText(OrderStatus status) {
@@ -233,6 +264,24 @@ class _OrderTrackingViewState extends ConsumerState<_OrderTrackingView>
     final token = await tokenStore.read();
 
     socket.connect(widget.order.id, token: token);
+
+    // On (re-)entry the view state is fresh, so `_hasRiderLocation` is false and
+    // the rider marker would stay blank until the next socket emission (which
+    // can be several seconds away). If the socket still holds the last known
+    // position for this order, seed the marker immediately — jumping (not
+    // sliding) to that position — and redraw the route so the screen looks the
+    // same as when the user left it. The live listener below keeps refining it.
+    final last = socket.lastLocationFor(widget.order.id);
+    if (last != null && mounted) {
+      final seeded = LatLng(last.latitude, last.longitude);
+      _markerAnimator.jumpTo(seeded);
+      setState(() {
+        _hasRiderLocation = true;
+        _riderLocation = seeded;
+      });
+      _fetchRoute(origin: seeded);
+    }
+
     _locationSub = socket.locationStream.listen((update) {
       if (mounted) {
         final nextLocation = LatLng(update.latitude, update.longitude);
@@ -297,6 +346,7 @@ class _OrderTrackingViewState extends ConsumerState<_OrderTrackingView>
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Stack(
       children: [
         Positioned.fill(
@@ -318,15 +368,13 @@ class _OrderTrackingViewState extends ConsumerState<_OrderTrackingView>
                     infoWindow: const InfoWindow(title: 'Home'),
                   ),
                   if (_hasRiderLocation)
-                    Marker(
-                      markerId: const MarkerId('rider'),
+                    buildRiderMarker(
                       position: _riderLocation,
-                      rotation: _markerAnimator.bearing,
-                      icon: BitmapDescriptor.defaultMarkerWithHue(
+                      bearing: _markerAnimator.bearing,
+                      puck: _riderPuck,
+                      fallback: BitmapDescriptor.defaultMarkerWithHue(
                         BitmapDescriptor.hueRed,
                       ),
-                      infoWindow: const InfoWindow(title: 'Rider'),
-                      anchor: const Offset(0.5, 0.5),
                     ),
                   if (restaurantAsync.valueOrNull != null)
                     Marker(
@@ -371,9 +419,9 @@ class _OrderTrackingViewState extends ConsumerState<_OrderTrackingView>
               left: 16,
               right: 16,
             ),
-            decoration: const BoxDecoration(
-              color: Color(0xFF2B9E49),
-              borderRadius: BorderRadius.only(
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primary,
+              borderRadius: const BorderRadius.only(
                 bottomLeft: Radius.circular(24),
                 bottomRight: Radius.circular(24),
               ),
@@ -384,7 +432,8 @@ class _OrderTrackingViewState extends ConsumerState<_OrderTrackingView>
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.arrow_back, color: Colors.white),
+                      icon: Icon(Icons.arrow_back,
+                          color: theme.colorScheme.onPrimary),
                       onPressed: () => Navigator.of(context).pop(),
                     ),
                     Consumer(
@@ -392,8 +441,8 @@ class _OrderTrackingViewState extends ConsumerState<_OrderTrackingView>
                         final restaurantAsync = ref.watch(restaurantDetailsProvider(widget.order.restaurantId));
                         return Text(
                           restaurantAsync.valueOrNull?['name'] ?? 'Loading...',
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: theme.colorScheme.onPrimary,
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
                           ),
@@ -401,7 +450,7 @@ class _OrderTrackingViewState extends ConsumerState<_OrderTrackingView>
                       }
                     ),
                     IconButton(
-                      icon: const Icon(Icons.reply, color: Colors.white),
+                      icon: Icon(Icons.reply, color: theme.colorScheme.onPrimary),
                       onPressed: () {},
                     ),
                   ],
@@ -409,8 +458,8 @@ class _OrderTrackingViewState extends ConsumerState<_OrderTrackingView>
                 const SizedBox(height: 12),
                 Text(
                   _getStatusText(widget.order.status),
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: theme.colorScheme.onPrimary,
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
                   ),
@@ -427,13 +476,14 @@ class _OrderTrackingViewState extends ConsumerState<_OrderTrackingView>
                           vertical: 8,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
+                          color: theme.colorScheme.onPrimary
+                              .withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
                           'Arriving in $_eta',
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: theme.colorScheme.onPrimary,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -513,9 +563,9 @@ class _OrderTrackingViewState extends ConsumerState<_OrderTrackingView>
                             ),
                           ),
                           if (isAssigned && phone != null)
-                            IconButton(
-                              icon: const Icon(Icons.phone, color: Colors.redAccent),
-                              onPressed: () {},
+                            CallButton(
+                              phoneNumber: phone,
+                              color: Colors.redAccent,
                             ),
                         ],
                       );

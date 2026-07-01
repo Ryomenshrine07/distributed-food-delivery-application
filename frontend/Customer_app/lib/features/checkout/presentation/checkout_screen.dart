@@ -20,6 +20,57 @@ import '../data/dtos/create_order_item_dto.dart';
 
 part 'checkout_screen.g.dart';
 
+/// Non-numeric resolution state of the delivery location shown at checkout.
+///
+/// The raw latitude/longitude are never surfaced; the UI shows only this status
+/// plus the human-readable address (Requirement 4.1).
+enum LocationStatus {
+  /// No resolution attempt has started yet.
+  idle,
+
+  /// A GPS or geocoding resolve is in flight (Req 4.4).
+  resolving,
+
+  /// Coordinates resolved from GPS or geocoding (Req 4.5).
+  resolved,
+
+  /// Resolution failed; the customer's typed address is used instead (Req 4.6).
+  failed,
+}
+
+/// Whether the checkout "Place Order" action should be enabled.
+///
+/// Pure function (no widget/provider dependencies) so the enablement gate is
+/// unit- and property-testable per Correctness Property 5. The order can be
+/// placed **iff** the customer has entered a delivery address ([hasAddress])
+/// AND the delivery location has fully resolved from GPS or geocoding — both
+/// [lat] and [lng] are non-null. Requiring resolved coordinates here is what
+/// keeps unresolved, defaulted, or hand-typed coordinates from ever being
+/// submitted.
+///
+/// Validates Requirements 4.7 (disabled while unresolved) and 4.8 (provenance).
+bool canPlaceOrder({
+  required bool hasAddress,
+  required double? lat,
+  required double? lng,
+}) =>
+    hasAddress && lat != null && lng != null;
+
+/// The delivery coordinates submitted with an order, taken *solely* from the
+/// resolved internal screen state ([lat]/[lng], set by GPS or geocoding).
+///
+/// Pure provenance seam for Correctness Property 5: it returns null when the
+/// location has not resolved, so there is no default or hand-typed fallback.
+/// When it returns a record, those values are exactly the resolved coordinates
+/// — the only source the checkout ever submits (Requirement 4.8).
+({double latitude, double longitude})? resolvedOrderCoordinates(
+  double? lat,
+  double? lng,
+) {
+  if (lat == null || lng == null) return null;
+  return (latitude: lat, longitude: lng);
+}
+
 /// Places an order via POST /orders.
 @riverpod
 class CheckoutController extends _$CheckoutController {
@@ -92,13 +143,19 @@ class CheckoutScreen extends ConsumerStatefulWidget {
 
 class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   final _addressController = TextEditingController();
-  // Delivery coordinates — the source of truth for where the order is sent.
-  // Auto-filled from the device's GPS on open (your real location); you can
-  // refresh from GPS, geocode the typed address, or edit them manually.
-  final _latController = TextEditingController(text: '25.4486');
-  final _lngController = TextEditingController(text: '78.5696');
 
-  bool _locating = false;
+  // Resolved delivery coordinates — internal screen state only. They are set
+  // from the device GPS (on open / on demand) or by geocoding the typed
+  // address, and are the *sole* source of the coordinates submitted with the
+  // order (Req 4.1, 4.8). They are never shown to, nor editable by, the
+  // customer.
+  double? _lat;
+  double? _lng;
+
+  // Non-numeric resolution status backing the location indicator (Req 4.4–4.6).
+  // Starts as `idle`; the on-open post-frame GPS resolve flips it to
+  // `resolving`. Both idle and resolving render the same "finding…" indicator.
+  LocationStatus _status = LocationStatus.idle;
 
   @override
   void initState() {
@@ -111,16 +168,15 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   @override
   void dispose() {
     _addressController.dispose();
-    _latController.dispose();
-    _lngController.dispose();
     super.dispose();
   }
 
   /// Sets the delivery point to the device's current GPS location and fills the
-  /// address label via reverse geocoding.
+  /// address label via reverse geocoding. Coordinates stay internal — they are
+  /// never displayed or editable (Req 4.2).
   Future<void> _useCurrentLocation() async {
-    if (_locating) return;
-    setState(() => _locating = true);
+    if (_status == LocationStatus.resolving) return;
+    setState(() => _status = LocationStatus.resolving);
     try {
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
@@ -129,42 +185,55 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       if (permission == LocationPermission.denied ||
           permission == LocationPermission.deniedForever) {
         _showSnack('Location permission denied — enter your address instead.');
+        if (mounted) setState(() => _status = LocationStatus.failed);
         return;
       }
       final pos = await Geolocator.getCurrentPosition();
-      _latController.text = pos.latitude.toStringAsFixed(6);
-      _lngController.text = pos.longitude.toStringAsFixed(6);
       final address = await ref
           .read(geocodingServiceProvider)
           .reverseGeocode(pos.latitude, pos.longitude);
-      if (address != null && mounted && _addressController.text.trim().isEmpty) {
-        _addressController.text = address;
-      }
+      if (!mounted) return;
+      setState(() {
+        // Coordinates come straight from GPS — kept as internal state only.
+        _lat = pos.latitude;
+        _lng = pos.longitude;
+        if (address != null && _addressController.text.trim().isEmpty) {
+          _addressController.text = address;
+        }
+        _status = LocationStatus.resolved;
+      });
     } catch (e) {
+      if (mounted) setState(() => _status = LocationStatus.failed);
       _showSnack('Could not get your location.');
-    } finally {
-      if (mounted) setState(() => _locating = false);
     }
   }
 
-  /// Geocodes the typed address into delivery coordinates (use when delivering
-  /// somewhere other than your current location).
+  /// Geocodes the typed address into internal delivery coordinates (use when
+  /// delivering somewhere other than your current location). Coordinates stay
+  /// internal — they are never displayed or editable (Req 4.3).
   Future<void> _locateTypedAddress() async {
     final address = _addressController.text.trim();
-    if (address.isEmpty) return;
-    setState(() => _locating = true);
+    if (address.isEmpty || _status == LocationStatus.resolving) return;
+    setState(() => _status = LocationStatus.resolving);
     try {
       final latLng =
           await ref.read(geocodingServiceProvider).geocode(address);
+      if (!mounted) return;
       if (latLng != null) {
-        _latController.text = latLng.latitude.toStringAsFixed(6);
-        _lngController.text = latLng.longitude.toStringAsFixed(6);
+        setState(() {
+          // Coordinates come straight from geocoding — internal state only.
+          _lat = latLng.latitude;
+          _lng = latLng.longitude;
+          _status = LocationStatus.resolved;
+        });
         _showSnack('Delivery point set from address.');
       } else {
+        setState(() => _status = LocationStatus.failed);
         _showSnack('Could not find that address.');
       }
-    } finally {
-      if (mounted) setState(() => _locating = false);
+    } catch (e) {
+      if (mounted) setState(() => _status = LocationStatus.failed);
+      _showSnack('Could not find that address.');
     }
   }
 
@@ -173,6 +242,53 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
     );
+  }
+
+  /// Non-numeric delivery-location status indicator (Req 4.4–4.6). It surfaces
+  /// only the resolution state and never the raw coordinates (Req 4.1).
+  Widget _buildLocationStatus(ThemeData theme, AppTokens tokens) {
+    switch (_status) {
+      case LocationStatus.idle:
+      case LocationStatus.resolving:
+        return Row(
+          children: [
+            const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            SizedBox(width: tokens.spaceSm),
+            Expanded(
+              child: Text('Finding your location…',
+                  style: theme.textTheme.bodyMedium),
+            ),
+          ],
+        );
+      case LocationStatus.resolved:
+        return Row(
+          children: [
+            Icon(Icons.check_circle, color: theme.colorScheme.primary),
+            SizedBox(width: tokens.spaceSm),
+            Expanded(
+              child: Text('Delivering to this location',
+                  style: theme.textTheme.bodyMedium),
+            ),
+          ],
+        );
+      case LocationStatus.failed:
+        return Row(
+          children: [
+            Icon(Icons.info_outline, color: theme.colorScheme.error),
+            SizedBox(width: tokens.spaceSm),
+            Expanded(
+              child: Text(
+                "Couldn't pin your exact spot — we'll use your typed address.",
+                style: theme.textTheme.bodyMedium,
+              ),
+            ),
+          ],
+        );
+    }
   }
 
   @override
@@ -279,16 +395,19 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                                 icon: const Icon(Icons.search),
                                 tooltip: 'Set delivery point from this address',
                                 onPressed:
-                                    _locating ? null : _locateTypedAddress,
+                                    _status == LocationStatus.resolving
+                                        ? null
+                                        : _locateTypedAddress,
                               ),
                             ),
                             maxLines: 2,
                           ),
                           SizedBox(height: tokens.spaceSm),
                           OutlinedButton.icon(
-                            onPressed:
-                                _locating ? null : _useCurrentLocation,
-                            icon: _locating
+                            onPressed: _status == LocationStatus.resolving
+                                ? null
+                                : _useCurrentLocation,
+                            icon: _status == LocationStatus.resolving
                                 ? const SizedBox(
                                     width: 16,
                                     height: 16,
@@ -299,43 +418,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                             label: const Text('Use my current location'),
                           ),
                           SizedBox(height: tokens.spaceSm),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: TextField(
-                                  controller: _latController,
-                                  keyboardType:
-                                      const TextInputType.numberWithOptions(
-                                          decimal: true, signed: true),
-                                  decoration: const InputDecoration(
-                                    labelText: 'Latitude',
-                                    prefixIcon: Icon(Icons.my_location),
-                                  ),
-                                ),
-                              ),
-                              SizedBox(width: tokens.spaceSm),
-                              Expanded(
-                                child: TextField(
-                                  controller: _lngController,
-                                  keyboardType:
-                                      const TextInputType.numberWithOptions(
-                                          decimal: true, signed: true),
-                                  decoration: const InputDecoration(
-                                    labelText: 'Longitude',
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          SizedBox(height: tokens.spaceXs),
-                          Text(
-                            'Tip: tap "Use my current location" to drop the pin '
-                            'exactly where you are, or type an address and tap '
-                            'the search icon.',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
+                          // Non-numeric delivery-location status. The resolved
+                          // latitude/longitude are internal state and are never
+                          // displayed or made editable (Req 4.1).
+                          _buildLocationStatus(theme, tokens),
                         ],
                       ),
                     ),
@@ -369,30 +455,40 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                     ),
                   SizedBox(height: tokens.spaceLg),
 
-                  // Place order button
+                  // Place order button — enabled only when an address and a
+                  // resolved delivery location exist; it submits the resolved
+                  // GPS/geocoding coordinates and nothing else (Req 4.7, 4.8).
                   ValueListenableBuilder<TextEditingValue>(
                     valueListenable: _addressController,
                     builder: (context, addressValue, child) {
+                      final isLoading = checkoutState is AsyncLoading;
+                      final enabled = canPlaceOrder(
+                        hasAddress: addressValue.text.trim().isNotEmpty,
+                        lat: _lat,
+                        lng: _lng,
+                      );
                       return FilledButton(
-                        onPressed: checkoutState is AsyncLoading ||
-                                addressValue.text.trim().isEmpty
+                        onPressed: (!enabled || isLoading)
                             ? null
-                            : () => ref
-                                .read(checkoutControllerProvider.notifier)
-                                .placeOrder(
-                                  deliveryAddress:
-                                      addressValue.text.trim(),
-                                  latitude: double.tryParse(
-                                          _latController.text) ??
-                                      25.4486,
-                                  longitude: double.tryParse(
-                                          _lngController.text) ??
-                                      78.5696,
-                                ),
+                            : () {
+                                // Coordinates are taken solely from the resolved
+                                // internal state (_lat!/_lng!): no parsing and no
+                                // default fallback (Req 4.8).
+                                final coords =
+                                    resolvedOrderCoordinates(_lat, _lng);
+                                if (coords == null) return;
+                                ref
+                                    .read(checkoutControllerProvider.notifier)
+                                    .placeOrder(
+                                      deliveryAddress: addressValue.text.trim(),
+                                      latitude: coords.latitude,
+                                      longitude: coords.longitude,
+                                    );
+                              },
                         style: FilledButton.styleFrom(
                           minimumSize: const Size.fromHeight(48),
                         ),
-                        child: checkoutState is AsyncLoading
+                        child: isLoading
                             ? const SizedBox(
                                 height: 20,
                                 width: 20,

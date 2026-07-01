@@ -75,6 +75,7 @@ dev_dependencies:
   custom_lint: any
   mocktail: any
   http_mock_adapter: any
+  fake_async: any
   flutter_lints: ^6.0.0
 
 # For information on the generic Dart part of this file, see the

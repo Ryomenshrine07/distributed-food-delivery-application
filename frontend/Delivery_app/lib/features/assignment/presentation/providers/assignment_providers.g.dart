@@ -105,54 +105,6 @@ final class ConfirmPickupUseCaseProvider
 String _$confirmPickupUseCaseHash() =>
     r'ec3811e962a493e7c42db5b9687dc67ce3be9f46';
 
-@ProviderFor(confirmDeliveryUseCase)
-final confirmDeliveryUseCaseProvider = ConfirmDeliveryUseCaseProvider._();
-
-final class ConfirmDeliveryUseCaseProvider
-    extends
-        $FunctionalProvider<
-          ConfirmDeliveryUseCase,
-          ConfirmDeliveryUseCase,
-          ConfirmDeliveryUseCase
-        >
-    with $Provider<ConfirmDeliveryUseCase> {
-  ConfirmDeliveryUseCaseProvider._()
-    : super(
-        from: null,
-        argument: null,
-        retry: null,
-        name: r'confirmDeliveryUseCaseProvider',
-        isAutoDispose: true,
-        dependencies: null,
-        $allTransitiveDependencies: null,
-      );
-
-  @override
-  String debugGetCreateSourceHash() => _$confirmDeliveryUseCaseHash();
-
-  @$internal
-  @override
-  $ProviderElement<ConfirmDeliveryUseCase> $createElement(
-    $ProviderPointer pointer,
-  ) => $ProviderElement(pointer);
-
-  @override
-  ConfirmDeliveryUseCase create(Ref ref) {
-    return confirmDeliveryUseCase(ref);
-  }
-
-  /// {@macro riverpod.override_with_value}
-  Override overrideWithValue(ConfirmDeliveryUseCase value) {
-    return $ProviderOverride(
-      origin: this,
-      providerOverride: $SyncValueProvider<ConfirmDeliveryUseCase>(value),
-    );
-  }
-}
-
-String _$confirmDeliveryUseCaseHash() =>
-    r'029669b999c99c40f47505d6a3b32c8ac5fd6d66';
-
 @ProviderFor(AssignmentController)
 final assignmentControllerProvider = AssignmentControllerProvider._();
 
@@ -178,7 +130,7 @@ final class AssignmentControllerProvider
 }
 
 String _$assignmentControllerHash() =>
-    r'147c295d89f4ea7be4e8dba85d8be940aa984491';
+    r'ed3b0a19408e7bcce1f25b9a63ebb20a99b50fd4';
 
 abstract class _$AssignmentController
     extends $AsyncNotifier<DeliveryAssignment?> {

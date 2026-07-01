@@ -9,7 +9,8 @@ import {
   UsersRound, 
   LineChart, 
   Bell, 
-  Settings 
+  Settings,
+  MapPin
 } from 'lucide-react';
 
 const navItems = [
@@ -17,6 +18,7 @@ const navItems = [
   { label: 'Restaurants', path: '/restaurants', icon: Store },
   { label: 'Orders', path: '/orders', icon: ShoppingBag },
   { label: 'Delivery Partners', path: '/delivery-partners', icon: Users },
+  { label: 'Live Map', path: '/live-map', icon: MapPin },
   { label: 'Customers', path: '/customers', icon: UsersRound },
   { label: 'Analytics', path: '/analytics', icon: LineChart },
   { label: 'Notifications', path: '/notifications', icon: Bell },

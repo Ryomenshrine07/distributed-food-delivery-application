@@ -8,6 +8,9 @@ import '../../../assignment/presentation/providers/assignment_providers.dart';
 import '../providers/navigation_providers.dart';
 import '../../../../core/maps/directions_service.dart';
 import '../../../../core/maps/marker_animator.dart';
+import '../../../../core/maps/marker_icon_factory.dart';
+import '../../../../core/theme/app_tokens.dart';
+import '../../../../core/widgets/call_button.dart';
 import '../../../location/presentation/providers/location_providers.dart';
 
 class NavigationScreen extends ConsumerStatefulWidget {
@@ -28,6 +31,10 @@ class _NavigationScreenState extends ConsumerState<NavigationScreen> with Single
   GoogleMapController? _mapController;
   late MarkerAnimator _markerAnimator;
   StreamSubscription<Position>? _positionSub;
+
+  final MarkerIconFactory _markerIconFactory = MarkerIconFactory();
+  BitmapDescriptor? _riderPuck;
+  bool _puckRequested = false;
 
   LatLng? _driverLocation;
   List<LatLng> _polylinePoints = [];
@@ -52,6 +59,31 @@ class _NavigationScreenState extends ConsumerState<NavigationScreen> with Single
     );
 
     _initLocationTracking();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _ensureRiderPuck();
+  }
+
+  /// Builds the custom rider puck once, on the first frame, using the live
+  /// device pixel ratio and the `riderMarker` token. Until it is ready (or if
+  /// rendering fails) the map keeps the default rider marker (Req 1.3, 1.9).
+  Future<void> _ensureRiderPuck() async {
+    if (_puckRequested) return;
+    _puckRequested = true;
+    final tokens = Theme.of(context).extension<AppTokens>()!;
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+    try {
+      final puck = await _markerIconFactory.vehiclePuck(
+        color: tokens.riderMarker,
+        devicePixelRatio: dpr,
+      );
+      if (mounted) setState(() => _riderPuck = puck);
+    } catch (_) {
+      // Keep the default marker on failure; never crash (Req 1.9).
+    }
   }
 
   void _initLocationTracking() async {
@@ -169,6 +201,8 @@ class _NavigationScreenState extends ConsumerState<NavigationScreen> with Single
     final destLat = isToRestaurant ? assignment.restaurantLatitude : assignment.customerLatitude;
     final destLng = isToRestaurant ? assignment.restaurantLongitude : assignment.customerLongitude;
 
+    final theme = Theme.of(context);
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: Stack(
@@ -189,13 +223,14 @@ class _NavigationScreenState extends ConsumerState<NavigationScreen> with Single
                   ),
                   infoWindow: InfoWindow(title: destName),
                 ),
-                Marker(
-                  markerId: const MarkerId('rider'),
+                buildRiderMarker(
                   position: _driverLocation!,
-                  rotation: _markerAnimator.bearing,
-                  icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
-                  infoWindow: const InfoWindow(title: 'You'),
-                  anchor: const Offset(0.5, 0.5),
+                  bearing: _markerAnimator.bearing,
+                  puck: _riderPuck,
+                  fallback: BitmapDescriptor.defaultMarkerWithHue(
+                    BitmapDescriptor.hueBlue,
+                  ),
+                  infoWindowTitle: 'You',
                 ),
               },
               polylines: {
@@ -221,9 +256,9 @@ class _NavigationScreenState extends ConsumerState<NavigationScreen> with Single
             right: 0,
             child: Container(
               padding: const EdgeInsets.only(top: 50, bottom: 20, left: 16, right: 16),
-              decoration: const BoxDecoration(
-                color: Color(0xFF2B9E49),
-                borderRadius: BorderRadius.only(
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primary,
+                borderRadius: const BorderRadius.only(
                   bottomLeft: Radius.circular(24),
                   bottomRight: Radius.circular(24),
                 ),
@@ -234,19 +269,21 @@ class _NavigationScreenState extends ConsumerState<NavigationScreen> with Single
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       IconButton(
-                        icon: const Icon(Icons.arrow_back, color: Colors.white),
+                        icon: Icon(Icons.arrow_back,
+                            color: theme.colorScheme.onPrimary),
                         onPressed: () => Navigator.of(context).pop(),
                       ),
                       Text(
                         isToRestaurant ? 'To Restaurant' : 'To Customer',
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: theme.colorScheme.onPrimary,
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.navigation, color: Colors.white),
+                        icon: Icon(Icons.navigation,
+                            color: theme.colorScheme.onPrimary),
                         onPressed: () {
                            ref.read(navigationControllerProvider(widget.orderId, widget.destination).notifier)
                               .launchExternalNavigation();
@@ -255,10 +292,10 @@ class _NavigationScreenState extends ConsumerState<NavigationScreen> with Single
                     ],
                   ),
                   const SizedBox(height: 12),
-                  const Text(
+                  Text(
                     'Deliver safely 🤘',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: theme.colorScheme.onPrimary,
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
                     ),
@@ -270,13 +307,14 @@ class _NavigationScreenState extends ConsumerState<NavigationScreen> with Single
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.2),
+                          color: theme.colorScheme.onPrimary
+                              .withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
                           'Arriving in $_eta',
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: theme.colorScheme.onPrimary,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -341,9 +379,9 @@ class _NavigationScreenState extends ConsumerState<NavigationScreen> with Single
                             ],
                           ),
                         ),
-                        IconButton(
-                          icon: const Icon(Icons.phone, color: Colors.redAccent),
-                          onPressed: () {},
+                        CallButton(
+                          phoneNumber: assignment.customerPhone,
+                          color: Colors.redAccent,
                         ),
                       ],
                     ),

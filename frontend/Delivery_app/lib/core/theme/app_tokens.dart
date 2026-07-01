@@ -1,10 +1,18 @@
 import 'package:flutter/material.dart';
 
+import 'brand_palette.dart';
+
 class AppTokens extends ThemeExtension<AppTokens> {
   final Color primary;
   final Color success;
   final Color warning;
   final Color error;
+  final Color info;
+
+  // Map-marker color tokens
+  final Color riderMarker;
+  final Color customerMarker;
+  final Color restaurantMarker;
 
   final Map<String, Color> deliveryStatusColors;
 
@@ -29,6 +37,10 @@ class AppTokens extends ThemeExtension<AppTokens> {
     required this.success,
     required this.warning,
     required this.error,
+    required this.info,
+    required this.riderMarker,
+    required this.customerMarker,
+    required this.restaurantMarker,
     required this.deliveryStatusColors,
     this.space4 = 4.0,
     this.space8 = 8.0,
@@ -46,28 +58,36 @@ class AppTokens extends ThemeExtension<AppTokens> {
 
   factory AppTokens.light() {
     return const AppTokens(
-      primary: Color(0xFF6750A4),
-      success: Color(0xFF4CAF50),
-      warning: Color(0xFFFF9800),
-      error: Color(0xFFB3261E),
+      primary: BrandPalette.brandPrimary,
+      success: BrandPalette.successLight,
+      warning: BrandPalette.warningLight,
+      error: BrandPalette.errorLight,
+      info: BrandPalette.infoLight,
+      riderMarker: BrandPalette.riderMarker,
+      customerMarker: BrandPalette.customerMarker,
+      restaurantMarker: BrandPalette.restaurantMarker,
       deliveryStatusColors: {
-        'assigned': Colors.blue,
-        'pickedUp': Colors.orange,
-        'delivered': Colors.green,
+        'assigned': BrandPalette.customerMarker,
+        'pickedUp': BrandPalette.warningLight,
+        'delivered': BrandPalette.successLight,
       },
     );
   }
 
   factory AppTokens.dark() {
     return const AppTokens(
-      primary: Color(0xFFD0BCFF),
-      success: Color(0xFF81C784),
-      warning: Color(0xFFFFB74D),
-      error: Color(0xFFF2B8B5),
+      primary: BrandPalette.brandPrimary,
+      success: BrandPalette.successDark,
+      warning: BrandPalette.warningDark,
+      error: BrandPalette.errorDark,
+      info: BrandPalette.infoDark,
+      riderMarker: BrandPalette.riderMarker,
+      customerMarker: BrandPalette.customerMarker,
+      restaurantMarker: BrandPalette.restaurantMarker,
       deliveryStatusColors: {
-        'assigned': Colors.blueAccent,
-        'pickedUp': Colors.orangeAccent,
-        'delivered': Colors.greenAccent,
+        'assigned': BrandPalette.infoDark,
+        'pickedUp': BrandPalette.warningDark,
+        'delivered': BrandPalette.successDark,
       },
     );
   }
@@ -78,6 +98,10 @@ class AppTokens extends ThemeExtension<AppTokens> {
     Color? success,
     Color? warning,
     Color? error,
+    Color? info,
+    Color? riderMarker,
+    Color? customerMarker,
+    Color? restaurantMarker,
     Map<String, Color>? deliveryStatusColors,
   }) {
     return AppTokens(
@@ -85,6 +109,10 @@ class AppTokens extends ThemeExtension<AppTokens> {
       success: success ?? this.success,
       warning: warning ?? this.warning,
       error: error ?? this.error,
+      info: info ?? this.info,
+      riderMarker: riderMarker ?? this.riderMarker,
+      customerMarker: customerMarker ?? this.customerMarker,
+      restaurantMarker: restaurantMarker ?? this.restaurantMarker,
       deliveryStatusColors: deliveryStatusColors ?? this.deliveryStatusColors,
       space4: space4,
       space8: space8,
@@ -111,6 +139,11 @@ class AppTokens extends ThemeExtension<AppTokens> {
       success: Color.lerp(success, other.success, t)!,
       warning: Color.lerp(warning, other.warning, t)!,
       error: Color.lerp(error, other.error, t)!,
+      info: Color.lerp(info, other.info, t)!,
+      riderMarker: Color.lerp(riderMarker, other.riderMarker, t)!,
+      customerMarker: Color.lerp(customerMarker, other.customerMarker, t)!,
+      restaurantMarker:
+          Color.lerp(restaurantMarker, other.restaurantMarker, t)!,
       deliveryStatusColors: {
         for (final key in deliveryStatusColors.keys)
           key: Color.lerp(

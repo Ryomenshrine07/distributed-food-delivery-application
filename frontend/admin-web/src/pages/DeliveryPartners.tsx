@@ -5,10 +5,19 @@ import { type DeliveryPartner, getDeliveryPartners, setPartnerOnline, setPartner
 import { type ColumnDef } from '@tanstack/react-table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { LoadingState } from '@/components/shared/LoadingState';
+import { filterPartners, type PartnerFilter } from '@/lib/partner-filter';
+
+const PARTNER_FILTERS: { key: PartnerFilter; label: string }[] = [
+  { key: 'online', label: 'Online' },
+  { key: 'available', label: 'Available' },
+  { key: 'assigned', label: 'Assigned' },
+];
 
 export const DeliveryPartners = () => {
   const [data, setData] = useState<DeliveryPartner[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeFilters, setActiveFilters] = useState<Set<PartnerFilter>>(new Set());
 
   const loadPartners = () => {
     setLoading(true);
@@ -21,6 +30,20 @@ export const DeliveryPartners = () => {
   useEffect(() => {
     loadPartners();
   }, []);
+
+  const toggleFilter = (key: PartnerFilter) => {
+    setActiveFilters((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  };
+
+  const filtered = useMemo(() => filterPartners(data, activeFilters), [data, activeFilters]);
 
   const handleToggleOnline = async (id: string, isOnline: boolean) => {
     try {
@@ -113,9 +136,28 @@ export const DeliveryPartners = () => {
         action={<Button onClick={loadPartners}>Refresh List</Button>}
       />
       {loading ? (
-        <div>Loading partners...</div>
+        <LoadingState message="Loading partners..." />
       ) : (
-        <DataTable columns={columns} data={data} />
+        <>
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Filter delivery partners">
+            {PARTNER_FILTERS.map(({ key, label }) => {
+              const selected = activeFilters.has(key);
+              return (
+                <Button
+                  key={key}
+                  type="button"
+                  size="sm"
+                  variant={selected ? 'default' : 'outline'}
+                  aria-pressed={selected}
+                  onClick={() => toggleFilter(key)}
+                >
+                  {label}
+                </Button>
+              );
+            })}
+          </div>
+          <DataTable columns={columns} data={filtered} />
+        </>
       )}
     </div>
   );

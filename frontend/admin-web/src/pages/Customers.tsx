@@ -4,6 +4,7 @@ import { DataTable } from '@/components/shared/DataTable';
 import { type Customer, getCustomers } from '@/services/customers';
 import { type ColumnDef } from '@tanstack/react-table';
 import { Badge } from '@/components/ui/badge';
+import { LoadingState } from '@/components/shared/LoadingState';
 
 const columns: ColumnDef<Customer>[] = [
   {
@@ -49,7 +50,7 @@ export const Customers = () => {
         description="View customer details, order history, and support tickets."
       />
       {loading ? (
-        <div>Loading customers...</div>
+        <LoadingState message="Loading customers..." />
       ) : (
         <DataTable columns={columns} data={data} />
       )}

@@ -1,63 +1,65 @@
+import { useQuery } from '@tanstack/react-query';
 import { PageHeader } from '@/components/shared/PageHeader';
-import { PendingFeature } from '@/components/shared/PendingFeature';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Activity, DollarSign, Store, Users } from 'lucide-react';
+import { LoadingState } from '@/components/shared/LoadingState';
+import { ErrorState } from '@/components/shared/ErrorState';
+import { AnalyticsCharts } from '@/components/shared/AnalyticsCharts';
+import { MetricCard } from '@/components/shared/MetricCard';
+import { Activity, CheckCircle, Clock, DollarSign } from 'lucide-react';
+import { getAnalytics } from '@/services/analytics';
+import { getOrders } from '@/services/orders';
+
+const currency = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 
 export const Dashboard = () => {
+  const analyticsQuery = useQuery({ queryKey: ['analytics'], queryFn: getAnalytics });
+  const ordersQuery = useQuery({ queryKey: ['orders'], queryFn: getOrders });
+
   return (
     <div className="space-y-6">
-      <PageHeader 
-        title="Dashboard" 
-        description="Platform overview and key metrics." 
-      />
-      
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">$45,231.89</div>
-            <p className="text-xs text-muted-foreground">+20.1% from last month</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Restaurants</CardTitle>
-            <Store className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">+2350</div>
-            <p className="text-xs text-muted-foreground">+180 from last month</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
-            <Activity className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">+12,234</div>
-            <p className="text-xs text-muted-foreground">+19% from last month</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Drivers</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">+573</div>
-            <p className="text-xs text-muted-foreground">+201 since last week</p>
-          </CardContent>
-        </Card>
-      </div>
+      <PageHeader title="Dashboard" description="Platform overview and key metrics." />
 
-      <PendingFeature 
-        title="Live Order Map & Analytics Charts" 
-        description="The live map and charts require WebSocket aggregation which is planned for Phase 3."
-      />
+      {analyticsQuery.isLoading ? (
+        <LoadingState message="Loading dashboard metrics..." />
+      ) : analyticsQuery.isError || !analyticsQuery.data ? (
+        <ErrorState
+          message="We couldn't load the dashboard metrics. Please try again."
+          onRetry={() => analyticsQuery.refetch()}
+        />
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <MetricCard
+            title="Total Orders"
+            icon={Activity}
+            value={analyticsQuery.data.totalOrders.toLocaleString()}
+          />
+          <MetricCard
+            title="Total Revenue"
+            icon={DollarSign}
+            value={currency.format(analyticsQuery.data.totalRevenue)}
+          />
+          <MetricCard
+            title="Pending Orders"
+            icon={Clock}
+            value={analyticsQuery.data.pendingOrders.toLocaleString()}
+          />
+          <MetricCard
+            title="Delivered Orders"
+            icon={CheckCircle}
+            value={analyticsQuery.data.deliveredOrders.toLocaleString()}
+          />
+        </div>
+      )}
+
+      {ordersQuery.isLoading ? (
+        <LoadingState message="Loading charts..." />
+      ) : ordersQuery.isError || !ordersQuery.data ? (
+        <ErrorState
+          message="We couldn't load order analytics. Please try again."
+          onRetry={() => ordersQuery.refetch()}
+        />
+      ) : (
+        <AnalyticsCharts orders={ordersQuery.data} />
+      )}
     </div>
   );
 };

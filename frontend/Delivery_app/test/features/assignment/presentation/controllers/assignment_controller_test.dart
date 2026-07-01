@@ -4,30 +4,27 @@ import 'package:delivery_app/features/assignment/domain/entities/delivery_status
 import 'package:delivery_app/features/assignment/domain/repositories/assignment_repository.dart';
 import 'package:delivery_app/features/assignment/domain/usecases/confirm_usecases.dart';
 import 'package:delivery_app/features/assignment/presentation/providers/assignment_providers.dart';
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 class MockAssignmentRepository extends Mock implements AssignmentRepository {}
 class MockConfirmPickupUseCase extends Mock implements ConfirmPickupUseCase {}
-class MockConfirmDeliveryUseCase extends Mock implements ConfirmDeliveryUseCase {}
 
 void main() {
   late MockAssignmentRepository mockRepository;
   late MockConfirmPickupUseCase mockPickupUseCase;
-  late MockConfirmDeliveryUseCase mockDeliveryUseCase;
   late ProviderContainer container;
 
   setUp(() {
     mockRepository = MockAssignmentRepository();
     mockPickupUseCase = MockConfirmPickupUseCase();
-    mockDeliveryUseCase = MockConfirmDeliveryUseCase();
-    
+
     container = ProviderContainer(
       overrides: [
         assignmentRepositoryProvider.overrideWithValue(mockRepository),
         confirmPickupUseCaseProvider.overrideWithValue(mockPickupUseCase),
-        confirmDeliveryUseCaseProvider.overrideWithValue(mockDeliveryUseCase),
       ],
     );
   });
@@ -80,22 +77,59 @@ void main() {
     verify(() => mockPickupUseCase.execute('order_123')).called(1);
   });
 
-  test('confirmDelivery transitions status to delivered', () async {
-    final pickedUpAssignment = sampleAssignment.copyWith(status: DeliveryStatus.pickedUp);
-    
-    when(() => mockRepository.getActiveAssignment())
-        .thenAnswer((_) async => pickedUpAssignment);
-        
-    when(() => mockDeliveryUseCase.execute('order_123'))
-        .thenAnswer((_) async => const Right(null));
+  test(
+      'polling clears the assignment and stops once the customer confirms '
+      'receipt (getActiveAssignment returns null)', () {
+    // Real timers can only be driven deterministically inside fakeAsync, so we
+    // build the controller and advance the fake clock past the poll interval.
+    fakeAsync((async) {
+      final pickedUp = sampleAssignment.copyWith(
+        status: DeliveryStatus.pickedUp,
+        pickedUpAt: DateTime.now(),
+      );
 
-    // Ensure initialization
-    await container.read(assignmentControllerProvider.future);
-    
-    await container.read(assignmentControllerProvider.notifier).confirmDelivery();
+      // First read (initial build) sees the picked-up assignment; every later
+      // poll returns null, mirroring the repository clearing its cache once the
+      // order flips to DELIVERED after the customer confirms receipt.
+      var calls = 0;
+      when(() => mockRepository.getActiveAssignment()).thenAnswer((_) async {
+        calls++;
+        return calls == 1 ? pickedUp : null;
+      });
 
-    final state = container.read(assignmentControllerProvider).value;
-    expect(state?.status, DeliveryStatus.delivered);
-    verify(() => mockDeliveryUseCase.execute('order_123')).called(1);
+      final localContainer = ProviderContainer(
+        overrides: [
+          assignmentRepositoryProvider.overrideWithValue(mockRepository),
+          confirmPickupUseCaseProvider.overrideWithValue(mockPickupUseCase),
+        ],
+      );
+      addTearDown(localContainer.dispose);
+
+      // Keep the provider alive and kick off build().
+      localContainer.listen(assignmentControllerProvider, (_, _) {});
+      async.flushMicrotasks();
+
+      // Initial state is the picked-up assignment; polling is now scheduled.
+      expect(
+        localContainer.read(assignmentControllerProvider).value,
+        pickedUp,
+      );
+      expect(calls, 1);
+
+      // One poll interval later the repository reports no active assignment.
+      async.elapse(const Duration(seconds: 5));
+      async.flushMicrotasks();
+
+      final settled = localContainer.read(assignmentControllerProvider);
+      expect(settled, isA<AsyncData<DeliveryAssignment?>>());
+      expect(settled.value, isNull);
+      final callsWhenCleared = calls;
+      expect(callsWhenCleared, greaterThanOrEqualTo(2));
+
+      // Polling has stopped: further elapsed time triggers no more reads.
+      async.elapse(const Duration(seconds: 20));
+      async.flushMicrotasks();
+      expect(calls, callsWhenCleared);
+    });
   });
 }

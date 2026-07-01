@@ -3,7 +3,12 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 part 'pending_confirmation.freezed.dart';
 part 'pending_confirmation.g.dart';
 
-enum ConfirmationType { pickedUp, delivered }
+/// The kind of delivery confirmation queued for offline retry.
+///
+/// Only [pickedUp] exists: delivery completion is customer-driven (the backend
+/// releases the rider on the customer's confirmation), so there is no rider
+/// "delivered" confirmation to queue (Req 3.7).
+enum ConfirmationType { pickedUp }
 
 @freezed
 abstract class PendingConfirmation with _$PendingConfirmation {

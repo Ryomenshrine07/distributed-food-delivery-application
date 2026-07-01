@@ -41,9 +41,25 @@ class TrackingSocket {
   StompClient? _stompClient;
   final _locationController = StreamController<RiderLocationUpdate>.broadcast();
 
+  /// The order currently being tracked. Scopes [lastLocationFor] so a cached
+  /// position is never handed out for a different order.
+  String? _currentOrderId;
+
+  /// The most recent rider location received for [_currentOrderId], retained so
+  /// a re-entering screen can paint the marker immediately (before the next
+  /// live update arrives) instead of showing a blank map.
+  RiderLocationUpdate? _lastLocation;
+
   Stream<RiderLocationUpdate> get locationStream => _locationController.stream;
 
+  /// Returns the last known rider location for [orderId], or null when none has
+  /// arrived yet or the socket has since switched to a different order.
+  RiderLocationUpdate? lastLocationFor(String orderId) =>
+      _currentOrderId == orderId ? _lastLocation : null;
+
   void connect(String orderId, {String? token}) {
+    selectOrder(orderId);
+
     if (_stompClient != null && _stompClient!.isActive) {
       return;
     }
@@ -63,17 +79,7 @@ class TrackingSocket {
           debugPrint('Connected to STOMP');
           _stompClient?.subscribe(
             destination: '/topic/orders/$orderId/location',
-            callback: (StompFrame frame) {
-              if (frame.body != null) {
-                try {
-                  final json = jsonDecode(frame.body!);
-                  final update = RiderLocationUpdate.fromJson(json);
-                  _locationController.add(update);
-                } catch (e) {
-                  debugPrint('Failed to parse location update: $e');
-                }
-              }
-            },
+            callback: (StompFrame frame) => handleLocationFrame(frame.body),
           );
         },
         onWebSocketError: (dynamic error) => debugPrint('WebSocket Error: $error'),
@@ -85,8 +91,42 @@ class TrackingSocket {
     _stompClient?.activate();
   }
 
+  /// Records [orderId] as the order being tracked, clearing any location cached
+  /// for a previous order so a stale position is never reused. Called at the
+  /// start of [connect]; also the seam tests use to exercise the
+  /// cache-invalidation-on-order-change behaviour without a live STOMP client.
+  @visibleForTesting
+  void selectOrder(String orderId) {
+    if (orderId != _currentOrderId) {
+      _lastLocation = null;
+      _currentOrderId = orderId;
+    }
+  }
+
+  /// Parses a raw location frame [body], caches it as the last known rider
+  /// position, and publishes it to [locationStream].
+  ///
+  /// Extracted from the STOMP subscription callback so the parse/cache/emit path
+  /// is unit-testable without instantiating a real STOMP client.
+  @visibleForTesting
+  void handleLocationFrame(String? body) {
+    if (body == null) return;
+    try {
+      final json = jsonDecode(body);
+      final update = RiderLocationUpdate.fromJson(json);
+      _lastLocation = update;
+      _locationController.add(update);
+    } catch (e) {
+      debugPrint('Failed to parse location update: $e');
+    }
+  }
+
   void disconnect() {
     _stompClient?.deactivate();
     _stompClient = null;
+    // _lastLocation and _currentOrderId are intentionally retained here: a quick
+    // navigate-away-and-back should be able to reseed the rider marker from the
+    // last known position. They are cleared only when [connect] switches to a
+    // different order (see [selectOrder]).
   }
 }

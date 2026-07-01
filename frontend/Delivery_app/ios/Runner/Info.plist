@@ -83,5 +83,9 @@
 	<array>
 	    <string>com.pravera.flutter_foreground_task.refresh</string>
 	</array>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>tel</string>
+	</array>
 </dict>
 </plist>

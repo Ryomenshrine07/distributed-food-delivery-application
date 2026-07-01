@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
+import 'brand_palette.dart';
+
 /// Centralized design tokens consumed by both light and dark themes.
 ///
 /// Exposed to widgets via `Theme.of(context).extension<AppTokens>()`.
-/// Includes semantic color roles, per-order-status palette,
-/// a 4-pt spacing scale, border radius, and elevation tokens.
+/// Includes semantic color roles, per-order-status palette, map-marker color
+/// tokens, a 4-pt spacing scale, border radius, and elevation tokens.
 @immutable
 class AppTokens extends ThemeExtension<AppTokens> {
   const AppTokens({
@@ -15,6 +17,10 @@ class AppTokens extends ThemeExtension<AppTokens> {
     required this.onSuccess,
     required this.onWarning,
     required this.onInfo,
+    // Map-marker color tokens
+    required this.riderMarker,
+    required this.customerMarker,
+    required this.restaurantMarker,
     // Order-status palette
     required this.statusPendingPayment,
     required this.statusConfirmed,
@@ -51,6 +57,11 @@ class AppTokens extends ThemeExtension<AppTokens> {
   final Color onWarning;
   final Color onInfo;
 
+  // Map-marker color tokens
+  final Color riderMarker;
+  final Color customerMarker;
+  final Color restaurantMarker;
+
   // Order-status palette
   final Color statusPendingPayment;
   final Color statusConfirmed;
@@ -85,12 +96,16 @@ class AppTokens extends ThemeExtension<AppTokens> {
   /// Light theme tokens.
   static const light = AppTokens(
     // Semantic colors (light)
-    success: Color(0xFF2E7D32),
-    warning: Color(0xFFE65100),
-    info: Color(0xFF0277BD),
+    success: BrandPalette.successLight,
+    warning: BrandPalette.warningLight,
+    info: BrandPalette.infoLight,
     onSuccess: Color(0xFFFFFFFF),
     onWarning: Color(0xFFFFFFFF),
     onInfo: Color(0xFFFFFFFF),
+    // Map-marker color tokens (identical in light/dark)
+    riderMarker: BrandPalette.riderMarker,
+    customerMarker: BrandPalette.customerMarker,
+    restaurantMarker: BrandPalette.restaurantMarker,
     // Order-status palette (light)
     statusPendingPayment: Color(0xFFFFA726),
     statusConfirmed: Color(0xFF42A5F5),
@@ -122,12 +137,16 @@ class AppTokens extends ThemeExtension<AppTokens> {
   /// Dark theme tokens.
   static const dark = AppTokens(
     // Semantic colors (dark)
-    success: Color(0xFF66BB6A),
-    warning: Color(0xFFFFB74D),
-    info: Color(0xFF4FC3F7),
+    success: BrandPalette.successDark,
+    warning: BrandPalette.warningDark,
+    info: BrandPalette.infoDark,
     onSuccess: Color(0xFF1B1B1B),
     onWarning: Color(0xFF1B1B1B),
     onInfo: Color(0xFF1B1B1B),
+    // Map-marker color tokens (identical in light/dark)
+    riderMarker: BrandPalette.riderMarker,
+    customerMarker: BrandPalette.customerMarker,
+    restaurantMarker: BrandPalette.restaurantMarker,
     // Order-status palette (dark)
     statusPendingPayment: Color(0xFFFFCC80),
     statusConfirmed: Color(0xFF90CAF9),
@@ -164,6 +183,9 @@ class AppTokens extends ThemeExtension<AppTokens> {
     Color? onSuccess,
     Color? onWarning,
     Color? onInfo,
+    Color? riderMarker,
+    Color? customerMarker,
+    Color? restaurantMarker,
     Color? statusPendingPayment,
     Color? statusConfirmed,
     Color? statusPreparing,
@@ -194,6 +216,9 @@ class AppTokens extends ThemeExtension<AppTokens> {
       onSuccess: onSuccess ?? this.onSuccess,
       onWarning: onWarning ?? this.onWarning,
       onInfo: onInfo ?? this.onInfo,
+      riderMarker: riderMarker ?? this.riderMarker,
+      customerMarker: customerMarker ?? this.customerMarker,
+      restaurantMarker: restaurantMarker ?? this.restaurantMarker,
       statusPendingPayment: statusPendingPayment ?? this.statusPendingPayment,
       statusConfirmed: statusConfirmed ?? this.statusConfirmed,
       statusPreparing: statusPreparing ?? this.statusPreparing,
@@ -230,6 +255,10 @@ class AppTokens extends ThemeExtension<AppTokens> {
       onSuccess: Color.lerp(onSuccess, other.onSuccess, t)!,
       onWarning: Color.lerp(onWarning, other.onWarning, t)!,
       onInfo: Color.lerp(onInfo, other.onInfo, t)!,
+      riderMarker: Color.lerp(riderMarker, other.riderMarker, t)!,
+      customerMarker: Color.lerp(customerMarker, other.customerMarker, t)!,
+      restaurantMarker:
+          Color.lerp(restaurantMarker, other.restaurantMarker, t)!,
       statusPendingPayment:
           Color.lerp(statusPendingPayment, other.statusPendingPayment, t)!,
       statusConfirmed:

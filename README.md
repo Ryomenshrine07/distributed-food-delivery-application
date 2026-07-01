@@ -358,38 +358,33 @@ food-delivery-system/
 
 ## Customer App
 
-> Insert screenshots here
+![alt text](image-2.png)
 
+![alt text](image-1.png)
+
+![alt text](image-3.png)
 ---
 
 ## Delivery Partner App
 
-> Insert screenshots here
+![alt text](image.png)
+
+![alt text](image-4.png)
 
 ---
 
 ## Admin Dashboard
 
-> Insert screenshots here
+![alt text](image-5.png)
 
----
+![alt text](image-6.png)
 
-#  Architecture Diagrams
-
-- System Architecture
-- Event Flow
-- Database Design
-- Kafka Event Flow
-- Rider Assignment Flow
-- Redis GEO Flow
-- Tracking Service Flow
-
-> Insert diagrams here
+![alt text](image-7.png)
 
 ---
 
 #  Purpose
 
-This project was built to explore how modern food delivery platforms achieve scalability, reliability and real-time communication using distributed systems.
+I wanted to learn and understand how distributed systems work behind the servers so i decided to code them myself. It was complex but also very exciting for me to learn something new which no fresher actually works on..
 
 It focuses on production-grade backend design rather than simple CRUD functionality, demonstrating asynchronous messaging, reliable event processing, distributed state management, and live location tracking across multiple independent services.

@@ -25,7 +25,4 @@ Map<String, dynamic> _$PendingConfirmationToJson(
   'retryCount': instance.retryCount,
 };
 
-const _$ConfirmationTypeEnumMap = {
-  ConfirmationType.pickedUp: 'pickedUp',
-  ConfirmationType.delivered: 'delivered',
-};
+const _$ConfirmationTypeEnumMap = {ConfirmationType.pickedUp: 'pickedUp'};

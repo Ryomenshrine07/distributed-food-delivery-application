@@ -1,6 +1,7 @@
 package com.service.delivery.config;
 
 import com.service.delivery.event.DeliveryPartnerCreatedEvent;
+import com.service.delivery.event.OrderDeliveredEvent;
 import com.service.delivery.event.OrderReadyForPickupEvent;
 import com.service.delivery.event.PaymentCompletedEvent;
 import org.apache.kafka.common.serialization.StringDeserializer;
@@ -88,6 +89,41 @@ public class KafkaConsumerConfig {
                 );
 
         ConcurrentKafkaListenerContainerFactory<String, OrderReadyForPickupEvent> factory =
+                new ConcurrentKafkaListenerContainerFactory<>();
+
+        factory.setConsumerFactory(consumerFactory);
+
+        return factory;
+    }
+
+    /**
+     * Consumer factory for the {@code order-delivered} topic.
+     *
+     * <p>The event is emitted by the Order Service when the owning customer confirms
+     * receipt; the {@link com.service.delivery.consumer.OrderDeliveredConsumer} reacts to it
+     * to release the assigned rider. Configured identically to the other cross-service
+     * factories ({@code setUseTypeHeaders(false)} + trust all packages) so the payload
+     * deserializes into the delivery-side {@link OrderDeliveredEvent} regardless of the
+     * producer's type headers. This adds a consumer only; the topic contract is unchanged.
+     */
+    @Bean
+    public ConcurrentKafkaListenerContainerFactory<String, OrderDeliveredEvent>
+    orderDeliveredFactory() {
+
+        JsonDeserializer<OrderDeliveredEvent> deserializer =
+                new JsonDeserializer<>(OrderDeliveredEvent.class);
+
+        deserializer.addTrustedPackages("*");
+        deserializer.setUseTypeHeaders(false);
+
+        DefaultKafkaConsumerFactory<String, OrderDeliveredEvent> consumerFactory =
+                new DefaultKafkaConsumerFactory<>(
+                        kafkaProperties.buildConsumerProperties(null),
+                        new StringDeserializer(),
+                        deserializer
+                );
+
+        ConcurrentKafkaListenerContainerFactory<String, OrderDeliveredEvent> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
 
         factory.setConsumerFactory(consumerFactory);

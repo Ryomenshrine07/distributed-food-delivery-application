@@ -41,15 +41,31 @@ public class JwtFilter implements GlobalFilter, Ordered{
                 .getHeaders()
                 .getFirst(HttpHeaders.AUTHORIZATION);
 
-        if(authHeader == null || !authHeader.startsWith("Bearer ")){
+        String token;
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            // Standard path — UNCHANGED for every route: JWT comes from the
+            // Authorization header.
+            token = authHeader.substring(7);
+        } else if (isTrackingWebSocketPath(path)) {
+            // Scoped fallback for the live rider-map handshake ONLY (Req 15.8):
+            // a browser cannot set the Authorization header on a WebSocket
+            // handshake, so for /ws/tracking/** we accept the JWT from the
+            // `token` query parameter and validate it identically below.
+            // NOTE: a token placed in the URL can be captured in access/proxy
+            // logs; this is accepted ONLY for this ws handshake and is NOT used
+            // for any other route.
+            token = exchange.getRequest().getQueryParams().getFirst("token");
+            if (token == null || token.isBlank()) {
+                exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
+                return exchange.getResponse().setComplete();
+            }
+        } else {
+            // Every other route still REQUIRES a Bearer Authorization header.
             exchange.getResponse()
                     .setStatusCode(HttpStatus.UNAUTHORIZED);
             return exchange.getResponse().setComplete();
         }
 
-        log.info("Authorization: {}", authHeader);
-
-        String token = authHeader.substring(7);
         try {
             if (!jwtService.isTokenValid(token)) {
                 exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
@@ -108,5 +124,15 @@ public class JwtFilter implements GlobalFilter, Ordered{
     @Override
     public int getOrder() {
         return -1;
+    }
+
+    /**
+     * Strictly matches the tracking WebSocket route ({@code /ws/tracking/**}):
+     * the base endpoint or any sub-path, but NOT lookalike prefixes such as
+     * {@code /ws/tracking-other}. This confines the query-parameter JWT fallback
+     * to exactly the route that needs it.
+     */
+    private boolean isTrackingWebSocketPath(String path) {
+        return path.equals("/ws/tracking") || path.startsWith("/ws/tracking/");
     }
 }

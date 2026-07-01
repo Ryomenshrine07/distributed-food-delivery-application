@@ -1,12 +1,11 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
-import '../../../core/routing/routes.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../../cart/presentation/cart_controller.dart';
+import '../../cart/presentation/widgets/cart_icon_button.dart';
 import '../../home/presentation/home_controller.dart';
 import '../domain/entities/restaurant.dart';
 
@@ -61,10 +60,7 @@ class RestaurantDetailScreen extends ConsumerWidget {
               expandedHeight: 200,
               pinned: true,
               actions: [
-                IconButton(
-                  icon: const Icon(Icons.shopping_cart_outlined),
-                  onPressed: () => context.push(AppRoutes.cart),
-                ),
+                const CartIconButton(),
               ],
               flexibleSpace: FlexibleSpaceBar(
                 title: Text(restaurant.name,

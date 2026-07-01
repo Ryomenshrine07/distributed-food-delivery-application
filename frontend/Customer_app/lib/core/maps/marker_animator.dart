@@ -24,6 +24,19 @@ class MarkerAnimator {
     controller.forward();
   }
 
+  /// Immediately places the marker at [position] with no tween.
+  ///
+  /// Unlike [animateTo], this snaps both the start and end to [position] and
+  /// halts any in-flight animation, so [currentValue] returns [position] right
+  /// away. Used to seed the last known rider position on screen re-entry
+  /// without the multi-second slide from the customer location that [animateTo]
+  /// would perform.
+  void jumpTo(LatLng position) {
+    _startPosition = position;
+    _endPosition = position;
+    controller.reset();
+  }
+
   LatLng get currentValue {
     if (!controller.isAnimating) return _endPosition;
     final value = _animation.value;

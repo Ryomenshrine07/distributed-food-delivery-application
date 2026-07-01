@@ -12,10 +12,6 @@ abstract class AssignmentRepository {
   /// On NoConnectionFailure, enqueues to offline queue and returns Right(QueuedResult).
   Future<Result<void>> markPickedUp(String orderId);
 
-  /// Confirm delivery: POST /api/delivery/assignments/{orderId}/delivered
-  /// On NoConnectionFailure, enqueues to offline queue and returns Right(QueuedResult).
-  Future<Result<void>> markDelivered(String orderId);
-
   /// Clear the cached active assignment.
   Future<void> clearActiveAssignment();
 
